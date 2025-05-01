@@ -47,36 +47,29 @@ data_loader.py assumes the original dataset structure.
 
 ## 🚀 Getting Started
 1 – Clone & install
-bash
-Copy
-Edit
-<code>
+```bash
 git clone git@github.com:<your-username>/ics-llm-anomaly-detection.git
 cd ics-llm-anomaly-detection
 python -m venv .venv && source .venv/bin/activate   # optional virtual-env
 pip install -r requirements.txt
-<code>
+```
 2 – Train a Deep-Learning model (LSTM × SWAT)
-bash
-Copy
-Edit
+```bash
 python main_train.py \
   --model LSTM \
   --run_name lstm
+```
 3 – Train a Classical ML model (SVM × SWAT)
-bash
-Copy
-Edit
+```bash
 python classical_ml.py \
   --model SVM \
   --run_name svm
+```
 4 – Fine-tune an LLM (SecBERT × WADI) *
-bash
-Copy
-Edit
+```bash
 python llm_models.py 
-
-* Requires GPU + transformers ≥ 4.
+```
+\* Requires GPU + transformers ≥ 4.
 
 
 ## 📈 Metrics
