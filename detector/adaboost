@@ -1,0 +1,225 @@
+import numpy as np
+import pickle
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.preprocessing import StandardScaler
+from .detector import ICSDetector
+
+
+class AdaBoostRegressorModel(ICSDetector):
+    def __init__(self, **kwargs):
+        params = {
+            "n_estimators": 50,
+            "learning_rate": 1.0,
+            "loss": "linear",
+            "random_state": 42,
+            "history": 50,
+            "verbose": 1,
+        }
+
+        for key, item in kwargs.items():
+            params[key] = item
+
+        self.params = params
+        self.scaler = StandardScaler()
+        self.model = AdaBoostRegressor(
+            n_estimators=self.params["n_estimators"],
+            learning_rate=self.params["learning_rate"],
+            loss=self.params["loss"],
+            random_state=self.params["random_state"],
+        )
+
+    def transform_to_window_data(self, dataset, target, target_size=1):
+        data, labels = [], []
+        history = self.params["history"]
+
+        print(f"Dataset shape: {dataset.shape}")
+        if len(target.shape) > 1:
+            print(f"Target shape: {target.shape}")
+        else:
+            print(f"Target shape: ({len(target)},)")
+        print(f"Using history window of {history}")
+        if history >= len(dataset):
+            print(
+                f"Warning: History {history} is too large for dataset length {len(dataset)}. Reducing history."
+            )
+            history = max(1, len(dataset) // 10) 
+            print(f"New history value: {history}")
+            self.params["history"] = history
+        target_is_multidim = len(target.shape) > 1 and target.shape[1] > 1
+        is_reconstruction = np.array_equal(dataset, target)
+        print(f"Is reconstruction task: {is_reconstruction}")
+        safe_end = len(dataset) - target_size
+
+        try:
+            for i in range(history, safe_end):
+                try:
+                    window_data = dataset[i - history : i]
+                    if len(window_data) != history:
+                        continue
+                    flattened_window = window_data.flatten()
+                    data.append(flattened_window)
+                    if is_reconstruction:
+                        if target_is_multidim:
+                            labels.append(np.mean(dataset[i]))
+                        else:
+                            labels.append(dataset[i])
+                    else:  
+                        if target_is_multidim:
+                            labels.append(np.mean(target[i]))
+                        else:
+                            labels.append(target[i])
+                except Exception as e:
+                    print(f"Error creating window at index {i}: {e}")
+                    continue
+            data_array = np.array(data)
+            labels_array = np.array(labels)
+
+            print(f"Created {len(data_array)} windows with shape {data_array.shape}")
+            if len(labels_array.shape) > 1:
+                print(f"Labels shape: {labels_array.shape}")
+            else:
+                print(f"Labels shape: ({len(labels_array)},)")
+
+            return data_array, labels_array
+
+        except Exception as e:
+            print(f"Error in transform_to_window_data: {e}")
+            if len(dataset.shape) > 1:
+                return np.empty((0, dataset.shape[1] * history)), np.empty((0,))
+            else:
+                return np.empty((0, history)), np.empty((0,))
+
+    def train(self, Xtrain, Ytrain):
+        if self.params["verbose"]:
+            print("Starting AdaBoost training...")
+        print(f"Xtrain shape: {Xtrain.shape}")
+        if len(Ytrain.shape) > 1:
+            print(f"Ytrain shape: {Ytrain.shape}")
+        else:
+            print(f"Ytrain shape: ({len(Ytrain)},)")
+        if len(Xtrain.shape) > 2:
+            print(f"Reshaping Xtrain from {Xtrain.shape} to 2D")
+            Xtrain = Xtrain.reshape(Xtrain.shape[0], -1)
+            print(f"New Xtrain shape: {Xtrain.shape}")
+
+        is_multidim = len(Ytrain.shape) > 1 and Ytrain.shape[1] > 1
+        if is_multidim:
+            print(
+                f"Target is multidimensional with shape {Ytrain.shape}. Using mean of features."
+            )
+            Ytrain_mean = np.mean(Ytrain, axis=1)
+            print(f"Ytrain_mean shape: ({len(Ytrain_mean)},)")
+            print("Scaling input data...")
+            Xtrain_scaled = self.scaler.fit_transform(Xtrain)
+            print(f"Training AdaBoost with {self.params['n_estimators']} estimators...")
+            self.model.fit(Xtrain_scaled, Ytrain_mean)
+        else:
+            print("Scaling input data...")
+            Xtrain_scaled = self.scaler.fit_transform(Xtrain)
+            print(f"Training AdaBoost with {self.params['n_estimators']} estimators...")
+            self.model.fit(Xtrain_scaled, Ytrain)
+
+        if self.params["verbose"]:
+            print("AdaBoost training completed.")
+
+    def predict(self, X):
+        try:
+            print(f"Predict input shape: {X.shape}")
+            if len(X.shape) > 2:
+                print(f"Reshaping X from {X.shape} to 2D for prediction")
+                X_2d = X.reshape(X.shape[0], -1)
+            else:
+                X_2d = X
+
+            print(f"Scaled input shape: {X_2d.shape}")
+            try:
+                X_scaled = self.scaler.transform(X_2d)
+            except ValueError as e:
+                print(f"Scaling error: {e}")
+                print("Attempting to fit_transform instead...")
+                X_scaled = self.scaler.fit_transform(X_2d)
+
+            predictions = self.model.predict(X_scaled)
+            print(f"Predictions shape: {predictions.shape}")
+            return predictions
+
+        except Exception as e:
+            print(f"Error in predict: {e}")
+            if len(X.shape) > 1:
+                return np.zeros(X.shape[0])
+            else:
+                return np.zeros(1)
+
+    def detect(self, x, theta, window=1):
+        reconstruction_error = self.reconstruction_errors(x)
+        instance_errors = reconstruction_error.mean(axis=1)
+        return self.cached_detect(instance_errors, theta, window)
+
+    def cached_detect(self, instance_errors, theta, window=1):
+        detection = instance_errors > theta
+        if window > 1:
+            detection = np.convolve(detection, np.ones(window), "same") // window
+        return detection
+
+    def reconstruction_errors(self, x, batches=False):
+        Xwindow, Ywindow = self.transform_to_window_data(x, x)
+        Xwindow_scaled = self.scaler.transform(Xwindow)
+        predictions = self.model.predict(Xwindow_scaled)
+        if len(predictions.shape) == 1:
+            predictions = predictions.reshape(-1, 1)
+
+        if len(Ywindow.shape) > 1 and len(predictions.shape) == 1:
+            actual_values = np.mean(Ywindow, axis=1)
+            squared_errors = (predictions - actual_values) ** 2
+            expanded_errors = np.zeros(Ywindow.shape)
+            for i in range(Ywindow.shape[1]):
+                expanded_errors[:, i] = squared_errors
+
+            return expanded_errors
+        elif (
+            len(predictions.shape) != len(Ywindow.shape)
+            or predictions.shape[1] != Ywindow.shape[1]
+            if len(Ywindow.shape) > 1
+            else 1
+        ):
+            if len(Ywindow.shape) > 1:
+                actual_values = np.mean(Ywindow, axis=1)
+            else:
+                actual_values = Ywindow
+
+            squared_errors = (predictions.flatten() - actual_values) ** 2
+            if len(Ywindow.shape) > 1:
+                expanded_errors = np.zeros(Ywindow.shape)
+                for i in range(Ywindow.shape[1]):
+                    expanded_errors[:, i] = squared_errors
+                return expanded_errors
+            else:
+                return squared_errors.reshape(-1, 1)
+        else:
+            errors = (predictions - Ywindow) ** 2
+            if len(errors.shape) == 1:
+                errors = errors.reshape(-1, 1)
+
+            return errors
+
+    def save(self, filename):
+        with open(filename + ".pkl", "wb") as f:
+            pickle.dump(
+                {
+                    "model": self.model,
+                    "scaler": self.scaler,
+                },
+                f,
+            )
+        print(f"AdaBoost model saved at {filename}.pkl")
+
+    def load(self, filename):
+        with open(filename + ".pkl", "rb") as f:
+            saved_data = pickle.load(f)
+            self.model = saved_data["model"]
+            self.scaler = saved_data["scaler"]
+        print(f"AdaBoost model loaded from {filename}.pkl")
+
+
+if __name__ == "__main__":
+    print("Not a main file.")
