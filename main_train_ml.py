@@ -61,8 +61,6 @@ from detector import (
     identity,
     linear,
     lstm,
-    rf,
-    Xgboost,
     svm,
     knn,
     mlp,
