@@ -53,19 +53,19 @@ cd ics-llm-anomaly-detection
 python -m venv .venv && source .venv/bin/activate   # optional virtual-env
 pip install -r requirements.txt
 ```
-2 – Train a Deep-Learning model (LSTM × SWAT)
+2 – Train a Deep-Learning model (LSTM )
 ```bash
 python main_train.py \
   --model LSTM \
   --run_name lstm
 ```
-3 – Train a Classical ML model (SVM × SWAT)
+3 – Train a Classical ML model (SVM )
 ```bash
 python classical_ml.py \
   --model SVM \
   --run_name svm
 ```
-4 – Fine-tune an LLM (SecBERT × WADI) *
+4 – Fine-tune an LLM (SecBERT ) *
 ```bash
 python llm_models.py 
 ```
