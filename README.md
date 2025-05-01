@@ -7,6 +7,7 @@ This repository implements anomaly detection for Industrial Control Systems (ICS
 ## 📁 Project Structure
 
 
+```text
 .
 ├── main_train.py            # Train DL models (AE, LSTM, CNN, …)
 ├── main_model_tuning.py     # Hyperparameter search & evaluation
@@ -25,6 +26,7 @@ This repository implements anomaly detection for Industrial Control Systems (ICS
 ├── requirements.txt
 ├── .gitignore
 └── README.md                # This file
+```
 ## 📊 Models Supported
 Category	Algorithms
 Classical ML	SVM • Random Forest • AdaBoost • k-Nearest-Neighbors
@@ -33,7 +35,7 @@ Transformer / LLM	BERT • DistilBERT • SecBERT
 
 Classical models operate on engineered statistical features; DL & LLM models forecast the next sensor state from historical windows.
 
-##📦 Datasets
+## 📦 Datasets
 Dataset	Domain	Size	Notes
 BATADAL	Water-distribution simulation	58 k rows	Download TAR archive
 
@@ -43,7 +45,7 @@ Place them under data/<DATASET_NAME>/... (same filenames).
 
 data_loader.py assumes the original dataset structure.
 
-##🚀 Getting Started
+## 🚀 Getting Started
 1 – Clone & install
 bash
 Copy
@@ -75,10 +77,9 @@ python llm_models.py
 * Requires GPU + transformers ≥ 4.
 
 
-##📈 Metrics
+## 📈 Metrics
 Point-F1 (per timestep)
 
-Range-F1 / Range-Fβ (segment aware)
 
 Accuracy • Precision • Recall
 
@@ -89,10 +90,10 @@ False-positive rate (FPR)
 NA-early (Numenta-style early detection)
 
 
-##📜 License
+## 📜 License
 Distributed under the Apache License 2.0 – see LICENSE.
 
-##🙏 Acknowledgments
+## 🙏 Acknowledgments
 Baseline framework from “ESORICS 2022 – Reconstruction-based Anomaly Detection in ICS” by Lujo Bauer & Clement Fung
 
 Classical ML pipelines powered by scikit-learn
