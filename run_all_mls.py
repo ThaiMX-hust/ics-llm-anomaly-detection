@@ -46,7 +46,6 @@ def parse_arguments():
 
 
 def setup_model_config(model_type, history):
-    """Setup model configuration for each model type"""
     config = {
         "name": f"{model_type}-model",
         "model": {"history": history},
@@ -60,19 +59,7 @@ def setup_model_config(model_type, history):
         },
     }
 
-    # Add model-specific parameters
-    if model_type == "RF":
-        config["model"]["n_estimators"] = 100
-        config["model"]["max_depth"] = None
-        config["model"]["random_state"] = 42
-        config["model"]["verbose"] = 1
-    elif model_type == "XG":
-        config["model"]["n_estimators"] = 100
-        config["model"]["max_depth"] = 6
-        config["model"]["learning_rate"] = 0.1
-        config["model"]["random_state"] = 42
-        config["model"]["verbose"] = 1
-    elif model_type == "SVM":
+    if model_type == "SVM":
         config["model"]["C"] = 1.0
         config["model"]["kernel"] = "rbf"
         config["model"]["epsilon"] = 0.1
@@ -107,8 +94,6 @@ def setup_model_config(model_type, history):
 def evaluate_model(
     model_type, config, Xfull, Xtest, Ytest, dataset_name, run_name, test_split
 ):
-    """Train and evaluate a single model"""
-
     start_time = time.time()
 
     print(f"\n=============================================")
@@ -145,8 +130,6 @@ def evaluate_model(
 
 
 def evaluate_all_models(args):
-    """Train and evaluate all models, then compare their performance"""
-
     # Load data
     print("Loading data...")
     Xfull, sensor_cols = load_train_data(args.dataset)
@@ -162,8 +145,7 @@ def evaluate_all_models(args):
     os.makedirs(f"npys/{args.run_name}", exist_ok=True)
     os.makedirs("npys/results", exist_ok=True)
 
-    # all_model_types = ["XG", "RF", "SVM", "MLP", "ADA", "KNN"]
-    all_model_types = ["KNN", "MLP"]
+    all_model_types = ["SVM", "MLP", "ADA", "KNN"]
 
     if args.model_types:
         model_types = [model.strip() for model in args.model_types.split(",")]
@@ -171,8 +153,6 @@ def evaluate_all_models(args):
     else:
         model_types = all_model_types
         print(f"Running all models: {', '.join(model_types)}")
-
-    # Track results
     results = {
         "model_type": [],
         "training_time": [],
@@ -236,7 +216,6 @@ def evaluate_all_models(args):
         final_test_errors = event_detector.reconstruction_errors(final_test_data)
         final_test_instance_errors = final_test_errors.mean(axis=1)
 
-        # Get predictions
         final_Yhat = event_detector.cached_detect(
             final_test_instance_errors, best_theta, best_window
         )
@@ -244,12 +223,6 @@ def evaluate_all_models(args):
         print("Final test labels shape:", final_test_labels.shape)
         final_test_labels = final_test_labels.reshape(-1)
 
-        # # Ensure consistent array lengths before calculating metrics
-        # final_Yhat, final_test_labels = utils.normalize_array_length(
-        #     final_Yhat, final_test_labels
-        # )
-
-        # Calculate metrics
         f1_micro = f1_score(final_test_labels, final_Yhat, average="micro")
         f1_macro = f1_score(final_test_labels, final_Yhat, average="macro")
         precision_micro = precision_score(
@@ -272,20 +245,16 @@ def evaluate_all_models(args):
         results["recall_macro"].append(recall_macro)
         results["accuracy"].append(accuracy)
 
-        # Compute ROC curve
         fpr, tpr, _ = roc_curve(final_test_labels, final_test_instance_errors)
         # save fpr, tpr, auc
         with open(f"results/{args.run_name}/{model_type}_roc.pkl", "wb") as f:
             pickle.dump((fpr, tpr, auc(fpr, tpr)), f)
         roc_curves[model_type] = (fpr, tpr, auc(fpr, tpr))
-
-    # Output results to DataFrame and save
     results_df = pd.DataFrame(results)
     results_df.to_csv(f"results/{args.run_name}/model_comparison.csv", index=False)
     print("\nModel Performance Comparison:")
     print(results_df.to_string())
 
-    # Plot ROC curves
     plt.figure(figsize=(10, 8))
 
     colors = ["blue", "red", "green", "orange", "purple"]
@@ -312,12 +281,9 @@ def evaluate_all_models(args):
     plt.legend(loc="lower right")
     plt.grid(True, alpha=0.3)
 
-    # Save ROC curve
     plt.savefig(f"plots/{args.run_name}/roc_comparison.pdf")
     # plt.savefig(f"plots/{args.run_name}/roc_comparison.png")
     # print(f"ROC curves saved to plots/{args.run_name}/roc_comparison.pdf and .png")
-
-    # Print the best model
     best_model_idx = results_df["f1_macro"].idxmax()
     best_model = results_df.iloc[best_model_idx]
     print(
