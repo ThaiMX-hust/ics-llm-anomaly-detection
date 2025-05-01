@@ -50,10 +50,12 @@ data_loader.py assumes the original dataset structure.
 bash
 Copy
 Edit
+<code>
 git clone git@github.com:<your-username>/ics-llm-anomaly-detection.git
 cd ics-llm-anomaly-detection
 python -m venv .venv && source .venv/bin/activate   # optional virtual-env
 pip install -r requirements.txt
+<code>
 2 – Train a Deep-Learning model (LSTM × SWAT)
 bash
 Copy
